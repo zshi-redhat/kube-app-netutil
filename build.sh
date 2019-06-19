@@ -12,4 +12,5 @@ export GOBIN=${PWD}/bin
 export GOPATH=${PWD}/gopath
 export CGO_ENABLED=0
 
-cd gopath/src/${REPO_PATH}/ && go build -v
+go install "$@" ${REPO_PATH}/server
+go install "$@" ${REPO_PATH}/client

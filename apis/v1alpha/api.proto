@@ -1,0 +1,18 @@
+syntax = "proto3";
+
+package v1alpha;
+
+service NetUtil {
+  rpc GetCPUInfo(CPURequest) returns (CPUResponse) {}
+}
+
+message Empty {
+}
+
+message CPURequest {
+	string pid = 1;
+}
+
+message CPUResponse {
+	string	cpuset = 1;
+}

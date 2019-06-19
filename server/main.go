@@ -12,7 +12,9 @@ import (
 	"time"
 
 	"github.com/golang/glog"
+	"golang.org/x/net/context"
 	"google.golang.org/grpc"
+	api "github.com/zshi-redhat/kube-app-netutil/apis/v1alpha"
 )
 
 const (
@@ -20,22 +22,17 @@ const (
 	cpusetPath = "/sys/fs/cgroup/cpuset/cpuset.cpus"
 )
 
-type netutilManager struct {
-	socketFile	string
+type NetUtilServer struct {
 	grpcServer	*grpc.Server
 }
 
-type cpuResource struct {
-	cpuset	string
-}
-
-func newNetutilManager() *netutilManager {
-	return &netutilManager{
+func newNetutilServer() *NetUtilServer {
+	return &NetUtilServer{
 		grpcServer: grpc.NewServer(),
 	}
 }
 
-func (nn *netutilManager) start() error {
+func (ns *NetUtilServer) start() error {
 	glog.Infof("starting netutil server at: %s\n", endpoint)
 	lis, err := net.Listen("unix", endpoint)
 	if err != nil {
@@ -43,7 +40,8 @@ func (nn *netutilManager) start() error {
 		return err
 	}
 
-	go nn.grpcServer.Serve(lis)
+	api.RegisterNetUtilServer(ns.grpcServer, ns)
+	go ns.grpcServer.Serve(lis)
 
 	// Wait for server to start
 	conn, err := grpc.Dial(endpoint, grpc.WithInsecure(), grpc.WithBlock(),
@@ -61,11 +59,11 @@ func (nn *netutilManager) start() error {
 	return nil
 }
 
-func (nn *netutilManager) stop() error {
+func (ns *NetUtilServer) stop() error {
 	glog.Infof("stopping netutil server")
-	if nn.grpcServer != nil {
-		nn.grpcServer.Stop()
-		nn.grpcServer = nil
+	if ns.grpcServer != nil {
+		ns.grpcServer.Stop()
+		ns.grpcServer = nil
 	}
 	err := os.Remove(endpoint)
 	if err != nil && !os.IsNotExist(err) {
@@ -74,24 +72,25 @@ func (nn *netutilManager) stop() error {
 	return nil
 }
 
-func (nn *netutilManager) GetCPU(pid string) (*cpuResource, error) {
-	path := filepath.Join("/proc", pid, "root", cpusetPath)
+func (ns *NetUtilServer) GetCPUInfo(ctx context.Context, rqt *api.CPURequest) (*api.CPUResponse, error) {
+	path := filepath.Join("/proc", rqt.Pid, "root", cpusetPath)
+	glog.Infof("getting cpuset from path: %s", path)
 	cpus, err := ioutil.ReadFile(path)
 	if err != nil {
 		glog.Errorf("Error getting cpuset info: %v", err)
 		return nil, err
 	}
-	return &cpuResource{cpuset: string(bytes.TrimSpace(cpus))}, nil
+	return &api.CPUResponse{Cpuset: string(bytes.TrimSpace(cpus))}, nil
 }
 
 func main() {
 	flag.Parse()
-	nn := newNetutilManager()
-	if nn == nil {
+	ns := newNetutilServer()
+	if ns == nil {
 		glog.Errorf("Error initializing netutil manager")
 		return
 	}
-	err := nn.start()
+	err := ns.start()
 	if err != nil {
 		return
 	}
@@ -102,7 +101,7 @@ func main() {
 	select {
 	case sig := <-sigCh:
 		glog.Infof("signal received, shutting down", sig)
-		nn.stop()
+		ns.stop()
 		return
 	}
 }

@@ -2,6 +2,7 @@ package main
 
 import (
 	"flag"
+	"fmt"
 	"net"
 	"os"
 	"strconv"
@@ -32,10 +33,28 @@ func main() {
 	c := api.NewNetUtilClient(conn)
 	pid := os.Getpid()
 	glog.Infof("os.Getpid() returns: %v", pid)
-	response, err := c.GetCPUInfo(context.Background(), &api.CPURequest{Pid: strconv.Itoa(pid)})
+	cpuResponse, err := c.GetCPUInfo(context.Background(), &api.CPURequest{Pid: strconv.Itoa(pid)})
 	if err != nil {
 		glog.Errorf("Error calling GetCPUInfo: %v", err)
 	}
-	glog.Infof("GetCPUInfo Response from NetUtilServer: %s", response.Cpuset)
+	glog.Infof("GetCPUInfo Response from NetUtilServer: %s", cpuResponse.Cpuset)
+
+	envResponse, err := c.GetEnv(context.Background(), &api.EnvRequest{Pid: strconv.Itoa(pid)})
+	if err != nil {
+		glog.Errorf("Error calling GetEnv: %v", err)
+	}
+	glog.Infof("GetEnv Response from NetUtilServer:")
+	for key, value := range envResponse.Envs {
+		fmt.Printf("| %-25s|: %s\n", key, value)
+	}
+
+	netResponse, err := c.GetNetworkStatus(context.Background(), &api.NetworkStatusRequest{Pid: strconv.Itoa(pid)})
+	if err != nil {
+		glog.Errorf("Error calling GetNetworkStatus: %v", err)
+	}
+	glog.Infof("GetEnv Response from NetUtilServer:")
+	for index, s := range netResponse.Status {
+		fmt.Printf("| %-25d|: %v\n", index, s)
+	}
 	return
 }

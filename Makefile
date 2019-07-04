@@ -1,7 +1,7 @@
 default:
-	./build.sh
+	./hack/build.sh
 image:
-	./images/build-image.sh
+	./hack/build-image.sh
 clean:
 	rm -rf gopath/
 	rm -rf bin/
